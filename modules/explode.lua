@@ -10,11 +10,11 @@ local blck = block
 local maxParticles = 4
 
 local function get_direction(cx, cy, cz, x, y, z)
-    local dx = x - cx
-    local dy = y - cy
-    local dz = z - cz
-    local yaw = math.atan2(dz, dx)
-    local pitch = math.atan2(dy, math.sqrt(dx*dx + dz*dz))
+    dx = x - cx
+    dy = y - cy
+    dz = z - cz
+    yaw = math.atan(dx, dz)
+    pitch = math.asin(-dy / math.sqrt(dx*dx + dy*dy + dz*dz));
     return yaw, pitch
 end
 
@@ -127,8 +127,10 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
             local distance = math.sqrt((ps[1] - cx)^2 + (ps[2] - cy)^2 + (ps[3] - cz)^2)
             local v = e.rigidbody:get_vel()
             local d = distance / (strenght * 2)
-            local sx, sy, sz = (cos(dx) * cos(dy)), (cos(dx) * sin(dy)), (sin(dx) / d)
-            e.rigidbody:set_vel({v[1] + ((sx / d) * 14), v[2] + ((sy / d) * 4), v[3] + ((sz / d) * 14)})
+            local sx = math.cos(pitch) * math.sin(yaw)
+            local sy = math.sin(pitch)
+            local sz = math.cos(pitch) * math.cos(yaw)
+            e.rigidbody:set_vel({v[1] + ((sx / d) * 2), v[2] + 1 + ((sy / d) * 2), v[3] + ((sz / d) * 2)})
         end
     end
     if gfx and spawnParticles == true then
@@ -144,7 +146,7 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
             acceleration={0, 0, 0},
             max_distance=64
         }
-        for i = 1, maxParticles do
+        for i = 1, maxParticles * ((strenght * 2) / 35) do
             ext.explosion = {strenght * i, strenght * i, strenght * i}
             gfx.particles.emit({cx, cy, cz}, 64, ext)
         end

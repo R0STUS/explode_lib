@@ -1,7 +1,7 @@
 {
     "id": "explode_lib",
     "title": "Explode Library",
-    "creator": "R0STUS",
-    "version": "2.2",
+    "creators": ["R0STUS", "SovMax"],
+    "version": "2.3.0",
     "description": "Makes your project with explosions more simple."
 }
