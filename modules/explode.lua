@@ -13,7 +13,7 @@ local function get_direction(cx, cy, cz, x, y, z)
     dx = x - cx
     dy = y - cy
     dz = z - cz
-    yaw = math.atan(dx, dz)
+    yaw = math.atan2(dx, dz)
     pitch = math.asin(-dy / math.sqrt(dx*dx + dy*dy + dz*dz));
     return yaw, pitch
 end
@@ -128,9 +128,9 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
             local v = e.rigidbody:get_vel()
             local d = distance / (strenght * 2)
             local sx = math.cos(pitch) * math.sin(yaw)
-            local sy = math.sin(pitch)
+            local sy = -math.sin(pitch)
             local sz = math.cos(pitch) * math.cos(yaw)
-            e.rigidbody:set_vel({v[1] + ((sx / d) * 2), v[2] + 1 + ((sy / d) * 2), v[3] + ((sz / d) * 2)})
+            e.rigidbody:set_vel({v[1] + ((sx / d) * 4), v[2] + ((sy / d) * 2), v[3] + ((sz / d) * 4)})
         end
     end
     if gfx and spawnParticles == true then
