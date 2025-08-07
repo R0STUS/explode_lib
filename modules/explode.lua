@@ -65,7 +65,7 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
     local total = 0
     local astep = steper / strenght
     strenght = strenght / 2
-    for i = 0, 360, astep do
+    for i = 0, 180, astep do
         for j = 0, 360, astep do
             local a = i * deg2rad
             local m = j * deg2rad
