@@ -1,6 +1,5 @@
 {
-  "blocks": [
-    "explosive"
-  ],
-  "items": []
+  "entities": [],
+  "items": [],
+  "blocks": []
 }
