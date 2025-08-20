@@ -1,4 +1,5 @@
-planExplode = {}
+local planExplode = {}
+local resistList = {}
 
 processPlanExplode = 0
 
@@ -18,22 +19,26 @@ local function get_direction(cx, cy, cz, x, y, z)
     return yaw, pitch
 end
 
-function processPlanExplodeReset()
-    processPlanExplode = 0
-end
-
-function explodeProcedural(cx, cy, cz, strenght, checkBaseDurability, holder, recursiveBlocks, spawnParticles, playSound)
-    local stepStr = 1 / (strenght / 35)
+function explodeProcedural(pos, options)
+    local stepStr = 1 / (options.strenght / 35)
     for i = stepStr, 1, stepStr do
-        local strn = strenght * i
-        table.insert(planExplode, {cx, cy, cz, strn, checkBaseDurability, holder, recursiveBlocks, "explode", spawnParticles, playSound})
+        local strn = options.strenght * i
+        local opts = options
+        opts.strenght = strn
+        table.insert(planExplode, {pos, options})
     end
     processPlanExplode = 1
 end
 
-function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recursiveBlocks, spawnParticles, playSound)
-    print("Preparing to explode...")
-    local resistList = {}
+function queueMove()
+    planExplode[1].options.func(planExplode[1].pos, planExplode[1].options)
+    table.remove(planExplode, 1)
+    if (#planExplode <= 0) then
+        processPlanExplode = 0
+    end
+end
+
+function loadResist()
     for o, pn in ipairs(pack.get_installed()) do
         if (file.exists(pn .. ":resistance_list.properties")) then
             local fl = file.read(pn .. ":resistance_list.properties")
@@ -56,14 +61,14 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
             end
         end
     end
-    cx = cx
-    cy = cy
-    cz = cz
-    blck.set(cx, cy, cz, 0)
-    local uptime1 = time.uptime()
-    local totalBlocks = 0
-    local total = 0
-    local astep = steper / strenght
+end
+
+function explode(pos, options)
+    local cx = pos[1] + 0.5
+    local cy = pos[2] + 0.5
+    local cz = pos[3] + 0.5
+    local strenght = options.strenght
+    local astep = steper / (strenght * (strenght * 0.05))
     strenght = strenght / 2
     for i = 0, 180, astep do
         for j = 0, 360, astep do
@@ -84,42 +89,35 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
                 if (bl ~= 0) then
                     local bp
                     if (blck.properties[bl]) then
-                        bp = blck.properties[bl]["base:durability"]
-                        if (bp ~= nil and checkBaseDurability == true) then
-                            rayHP = rayHP - blck.properties[bl]["base:durability"]
+                        bp = blck.properties[bl]["explode_lib:blast_resistance"]
+                        if (bp ~= nil) then
+                            rayHP = rayHP - blck.properties[bl]["explode_lib:blast_resistance"]
                         end
                     end
-                    if (resistList[tostring(bl)] ~= nil and (bp == nil or checkBaseDurability ~= true)) then
+                    if (resistList[tostring(bl)] ~= nil and bp == nil) then
                         rayHP = rayHP - resistList[tostring(bl)]
                     end
                     if (rayHP <= 0) then
                         break; -- Никто не заметит ;)
                     end
                     local rebl = blck.name(bl)
-                    if (rebl ~= nil and recursiveBlocks[rebl] ~= nil) then
-                        if (recursiveBlocks[rebl][4] == "cpy") then
-                            table.insert(planExplode, {x, y, z, recursiveBlocks[rebl][1], recursiveBlocks[rebl][2], recursiveBlocks[rebl][3], recursiveBlocks, recursiveBlocks[rebl][5], recursiveBlocks[rebl][6], recursiveBlocks[rebl][7]})
+                    if (rebl ~= nil and options.recursiveBlocks[rebl] ~= nil) then
+                        if (options.recursiveBlocks[rebl].recursiveBlocks == "cpy") then
+                            local opts = options.recursiveBlocks[rebl]
+                            opts.recursiveBlocks = options.recursiveBlocks
+                            table.insert(planExplode, {pos = {x, y, z}, options = opts})
                         else
-                            table.insert(planExplode, {x, y, z, recursiveBlocks[rebl][1], recursiveBlocks[rebl][2], recursiveBlocks[rebl][3], recursiveBlocks[rebl][4], recursiveBlocks[rebl][5], recursiveBlocks[rebl][6], recursiveBlocks[rebl][7]})
+                            table.insert(planExplode, {pos = {x, y, z}, options = options.recursiveBlocks[rebl]})
                         end
                         processPlanExplode = 1
                     end
                     blck.set(x, y, z, 0)
-                    totalBlocks = totalBlocks + 1
                 end
                 rayHP = rayHP - 1
             end
-            total = total + 1
         end
     end
-    print("Explode finished.")
-    print("Total rays:  ", total)
-    print("Total blocks:  ", totalBlocks)
-    local uptime2 = time.uptime()
-    local uptime = uptime2 - uptime1
-    print("Explode Was  ", uptime, "  seconds")
-    if (pushEntities == true) then
-        print("Pushing entities...")
+    if (options.pushEntities == true) then
         for v, en in ipairs(entities.get_all_in_radius({cx, cy, cz}, strenght * 2)) do
             local e = entities.get(en)
             local ps = e.transform:get_pos()
@@ -133,10 +131,9 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
             e.rigidbody:set_vel({v[1] + ((sx / d) * 4), v[2] + ((sy / d) * 2), v[3] + ((sz / d) * 4)})
         end
     end
-    if gfx and spawnParticles == true then
-        print("Creating particles...")
+    if gfx and options.spawnParticles == true then
         local ext = {
-            lifetime=4.0,
+            lifetime=4.0 * ((strenght * 2) / 35),
             spawn_interval=0.001,
             explosion={0,0,0},
             texture="particles:smoke",
@@ -144,17 +141,14 @@ function explode(cx, cy, cz, strenght, checkBaseDurability, pushEntities, recurs
             spawn_shape="sphere",
             spawn_spread={1, 1, 1},
             acceleration={0, 0, 0},
-            max_distance=64
+            max_distance = 16 * core.get_setting("chunks.load-distance")
         }
         for i = 1, maxParticles * ((strenght * 2) / 35) do
             ext.explosion = {strenght * i, strenght * i, strenght * i}
             gfx.particles.emit({cx, cy, cz}, 64, ext)
         end
-        print("Particles spawned.")
     end
-    if (playSound == true) then
-        print("Playing sound...")
+    if (options.playSound == true) then
         audio.play_stream("sounds/explosion.ogg", cx, cy, cz, 1, (math.random() * 0.5) + 0.75)
     end
-    print("Finished: playSound = ", playSound, "spawnParticles = ", spawnParticles)
 end
